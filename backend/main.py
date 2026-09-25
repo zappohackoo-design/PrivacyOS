@@ -3,7 +3,8 @@ import uuid
 import json
 from datetime import datetime, timedelta
 from fastapi import FastAPI, Depends, HTTPException, status, File, UploadFile, Form, BackgroundTasks, WebSocket
-from fastapi.responses import Response
+from fastapi.responses import Response, FileResponse
+from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session
 from pydantic import BaseModel, EmailStr
@@ -63,8 +64,8 @@ class LoginStep2(BaseModel):
 
 # --- API ROUTES ---
 
-@app.get("/")
-def read_root():
+@app.get("/api/health")
+def health_check():
     return {"message": "PrivacyOS Enterprise Suite Backend is running!"}
 
 # ==========================================
@@ -137,7 +138,7 @@ def login_verify(data: LoginStep2, db: Session = Depends(get_db)):
     }
 
 # ==========================================
-# 🛡️ TERMINAL A: ENCRYPT & PROTECT (TIER ENFORCED)
+# 🛡️ TERMINAL A: ENCRYPT & PROTECT
 # ==========================================
 @app.post("/api/protect")
 async def protect_data(
@@ -154,13 +155,11 @@ async def protect_data(
     carrier_file: UploadFile = File(None),
     db: Session = Depends(get_db)
 ):
-    # --- SERVER-SIDE SECURITY TIER ENFORCEMENT ---
     if security_tier == "level3":
-        transfer_mode = "hidden"  # Ghost Mode enforces steganography
-        max_views = 1             # Ghost Mode forces self-destruction
+        transfer_mode = "hidden"
+        max_views = 1
     elif security_tier == "level1":
-        max_views = 999           # Level 1 allows persistent access
-    # ---------------------------------------------
+        max_views = 999
 
     secret_bytes = await secret_file.read()
     encrypted_payload = crypto_engine.encrypt_file_data(secret_bytes, lock_password)
@@ -196,7 +195,6 @@ async def protect_data(
     db.add(new_policy)
     db.commit()
     
-    # --- OUT-OF-BAND DISPATCH (PASSWORD REMOVED FROM EMAIL) ---
     background_tasks.add_task(
         email_service.send_dispatch_email,
         sender_email=sender_email, 
@@ -466,3 +464,15 @@ async def scan_leaked_image(leak_file: UploadFile = File(...)):
     except Exception:
         if os.path.exists(temp_path): os.remove(temp_path)
         raise HTTPException(status_code=400, detail="Invalid image")
+
+
+# ==========================================
+# 🌐 SERVE FRONTEND UI DIRECTLY FROM BACKEND
+# ==========================================
+@app.get("/")
+def serve_login_page():
+    return FileResponse("frontend/index.html")
+
+@app.get("/dashboard.html")
+def serve_dashboard_page():
+    return FileResponse("frontend/dashboard.html")
