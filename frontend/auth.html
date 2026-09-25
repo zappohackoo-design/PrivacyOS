@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html lang="en" data-bs-theme="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PrivacyOS | Authentication</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>body { background-color: #0a0a0f; color: #f8f9fa; }</style>
+</head>
+<body class="d-flex align-items-center justify-content-center vh-100">
+
+    <div class="container" style="max-width: 500px;">
+        <div class="card bg-dark border-secondary shadow-lg">
+            <div class="card-body p-5">
+                <div class="text-center mb-4">
+                    <h3 class="fw-bold text-primary">PrivacyOS</h3>
+                    <p class="text-secondary" id="form-subtitle">Create Your Account</p>
+                </div>
+
+                <!-- Registration Form -->
+                <form id="register-form">
+                    <div class="mb-3"><input type="text" class="form-control bg-dark text-white border-secondary" id="reg-fullname" placeholder="Full Name" required></div>
+                    <div class="mb-3"><input type="text" class="form-control bg-dark text-white border-secondary" id="reg-username" placeholder="Username" required></div>
+                    <div class="mb-3"><input type="email" class="form-control bg-dark text-white border-secondary" id="reg-email" placeholder="Email Address" required></div>
+                    <div class="mb-3"><input type="tel" class="form-control bg-dark text-white border-secondary" id="reg-phone" placeholder="Phone Number (Optional)"></div>
+                    <div class="mb-3"><input type="password" class="form-control bg-dark text-white border-secondary" id="reg-password" placeholder="Password" required></div>
+                    <div class="mb-4"><input type="password" class="form-control bg-dark text-white border-secondary" id="reg-confirm" placeholder="Confirm Password" required></div>
+                    <button type="submit" class="btn btn-primary w-100 fw-bold">Register</button>
+                    <div class="text-center mt-3"><a href="#" onclick="showLogin()" class="text-decoration-none text-secondary">Already have an account? Login</a></div>
+                </form>
+
+                <!-- Login Form -->
+                <form id="login-form" class="d-none">
+                    <div class="mb-3"><input type="email" class="form-control bg-dark text-white border-secondary" id="login-email" placeholder="Email Address" required></div>
+                    <div class="mb-4"><input type="password" class="form-control bg-dark text-white border-secondary" id="login-password" placeholder="Password" required></div>
+                    <button type="submit" class="btn btn-primary w-100 fw-bold">Login</button>
+                    <div class="text-center mt-3"><a href="#" onclick="showRegister()" class="text-decoration-none text-secondary">Need an account? Register</a></div>
+                </form>
+
+                <!-- OTP Verification Form -->
+                <form id="otp-form" class="d-none text-center">
+                    <p class="mb-4 text-warning">We've sent a 6-digit OTP to your email.</p>
+                    <div class="d-flex justify-content-between mb-4">
+                        <input type="text" class="form-control bg-dark text-white border-secondary text-center mx-1 fs-3" maxlength="1">
+                        <input type="text" class="form-control bg-dark text-white border-secondary text-center mx-1 fs-3" maxlength="1">
+                        <input type="text" class="form-control bg-dark text-white border-secondary text-center mx-1 fs-3" maxlength="1">
+                        <input type="text" class="form-control bg-dark text-white border-secondary text-center mx-1 fs-3" maxlength="1">
+                        <input type="text" class="form-control bg-dark text-white border-secondary text-center mx-1 fs-3" maxlength="1">
+                        <input type="text" class="form-control bg-dark text-white border-secondary text-center mx-1 fs-3" maxlength="1">
+                    </div>
+                    <p class="text-danger small mb-3">Expires in: 04:59</p>
+                    <button type="button" class="btn btn-success w-100 fw-bold">Verify OTP</button>
+                    <button type="button" class="btn btn-link text-secondary w-100 mt-2 text-decoration-none">Resend OTP</button>
+                </form>
+
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const API_URL = 'http://127.0.0.1:8000/api';
+        let registeredEmail = "";
+
+        // UI Transitions
+        function showOTP() {
+            document.getElementById('register-form').classList.add('d-none');
+            document.getElementById('login-form').classList.add('d-none');
+            document.getElementById('otp-form').classList.remove('d-none');
+            document.getElementById('form-subtitle').innerText = "Verify Your Email";
+        }
+        function showLogin() {
+            document.getElementById('register-form').classList.add('d-none');
+            document.getElementById('otp-form').classList.add('d-none');
+            document.getElementById('login-form').classList.remove('d-none');
+            document.getElementById('form-subtitle').innerText = "Login to your account";
+        }
+        function showRegister() {
+            document.getElementById('login-form').classList.add('d-none');
+            document.getElementById('otp-form').classList.add('d-none');
+            document.getElementById('register-form').classList.remove('d-none');
+            document.getElementById('form-subtitle').innerText = "Create Your Account";
+        }
+
+        // Auto-switch based on URL parameters (e.g., auth.html?mode=login)
+        window.onload = () => {
+            const params = new URLSearchParams(window.location.search);
+            if (params.get('mode') === 'login') showLogin();
+        };
+
+        // 1. Handle Registration
+        document.getElementById('register-form').addEventListener('submit', async function(e) {
+            e.preventDefault();
+            const password = document.getElementById('reg-password').value;
+            const confirm = document.getElementById('reg-confirm').value;
+
+            if (password !== confirm) return alert("Passwords do not match!");
+
+            const userData = {
+                full_name: document.getElementById('reg-fullname').value,
+                username: document.getElementById('reg-username').value,
+                email: document.getElementById('reg-email').value,
+                phone_number: document.getElementById('reg-phone').value,
+                password: password
+            };
+
+            const btn = e.target.querySelector('button');
+            btn.innerText = "Registering...";
+
+            try {
+                const response = await fetch(`${API_URL}/register`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(userData)
+                });
+                const data = await response.json();
+                
+                if (response.ok) {
+                    registeredEmail = userData.email;
+                    showOTP(); 
+                } else {
+                    alert("Error: " + data.detail);
+                    btn.innerText = "Register";
+                }
+            } catch (error) {
+                alert("Network error.");
+                btn.innerText = "Register";
+            }
+        });
+
+        // 2. Handle OTP Verification
+        document.querySelector('#otp-form .btn-success').addEventListener('click', async function() {
+            const inputs = document.querySelectorAll('#otp-form input');
+            let otpCode = "";
+            inputs.forEach(input => otpCode += input.value);
+
+            if (otpCode.length !== 6) return alert("Please enter the full 6-digit OTP.");
+
+            this.innerText = "Verifying...";
+            try {
+                const response = await fetch(`${API_URL}/verify-otp`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ email: registeredEmail, otp: otpCode })
+                });
+                
+                if (response.ok) {
+                    window.location.href = "dashboard.html";
+                } else {
+                    const data = await response.json();
+                    alert("Verification Failed: " + data.detail);
+                    this.innerText = "Verify OTP";
+                }
+            } catch (error) {
+                alert("Network error.");
+                this.innerText = "Verify OTP";
+            }
+        });
+
+        // 3. Handle Login
+        document.getElementById('login-form').addEventListener('submit', async function(e) {
+            e.preventDefault();
+            const btn = e.target.querySelector('button');
+            btn.innerText = "Authenticating...";
+
+            try {
+                const response = await fetch(`${API_URL}/login`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        email: document.getElementById('login-email').value,
+                        password: document.getElementById('login-password').value
+                    })
+                });
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    
+                    // NEW: Save the secure token to the browser's memory!
+                    localStorage.setItem('token', data.access_token);
+                    localStorage.setItem('username', data.username);
+                    
+                    window.location.href = "dashboard.html";
+                } else {
+                    const data = await response.json();
+                    alert("Login Failed: " + data.detail);
+                    btn.innerText = "Login";
+                }
+            } catch (error) {
+                alert("Network error.");
+                btn.innerText = "Login";
+            }
+        });
+    </script>
+</body>
+</html>

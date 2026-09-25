@@ -1,0 +1,951 @@
+<!DOCTYPE html>
+<html lang="en" data-bs-theme="dark">
+<head>
+    <meta charset="UTF-8">
+    <script>
+        if (!localStorage.getItem('token')) window.location.href = "index.html";
+    </script>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PrivacyOS | Command Center</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
+    <!-- Three.js for 3D Cyber Globe -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <style>
+        body { background-color: #050508; color: #f8f9fa; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
+        .sidebar { min-height: 100vh; background-color: #0a0a0f; border-right: 1px solid #1f1f2e; }
+        .nav-pills .nav-link { color: #8892b0; margin-bottom: 8px; border-radius: 8px; padding: 12px 20px; transition: all 0.3s ease; }
+        .nav-pills .nav-link:hover { background-color: rgba(13, 110, 253, 0.1); color: #fff; transform: translateX(5px); }
+        .nav-pills .nav-link.active { background-color: #0d6efd; color: white; box-shadow: 0 0 15px rgba(13, 110, 253, 0.4); }
+        .stat-card { background: linear-gradient(145deg, #12121a, #0a0a0f); border: 1px solid #1f1f2e; border-radius: 15px; box-shadow: 0 10px 30px rgba(0,0,0,0.5); transition: 0.3s; }
+        .stat-card:hover { transform: translateY(-5px); border-color: #0d6efd; }
+        
+        .wizard-step { display: none; animation: slideUpFade 0.5s ease forwards; background: #0d0d14; border: 1px solid #1f1f2e; border-radius: 15px; padding: 40px; }
+        .wizard-step.active { display: block; }
+        @keyframes slideUpFade { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+        
+        .form-control, .form-select { background-color: #050508 !important; border: 1px solid #2d2d3a; color: #fff !important; padding: 12px; border-radius: 8px; }
+        .form-control:focus, .form-select:focus { border-color: #0d6efd; box-shadow: 0 0 15px rgba(13, 110, 253, 0.3); }
+        .step-indicator { color: #0d6efd; font-size: 0.9rem; font-weight: bold; letter-spacing: 2px; text-transform: uppercase; margin-bottom: 10px; }
+        .btn-cyber { background: #0d6efd; color: white; border-radius: 8px; padding: 12px 25px; font-weight: bold; border: none; transition: 0.3s; }
+        .btn-cyber:hover { background: #0b5ed7; box-shadow: 0 0 20px rgba(13, 110, 253, 0.5); }
+        canvas { cursor: crosshair; }
+    </style>
+</head>
+<body>
+    <div class="d-flex">
+        <!-- Sidebar -->
+        <div class="sidebar p-3" style="width: 280px;">
+            <h4 class="text-white fw-bold mb-5 mt-3 ms-2"><i class="bi bi-shield-lock-fill text-primary me-2"></i>PrivacyOS</h4>
+            <ul class="nav nav-pills flex-column" id="dashboard-tabs" role="tablist">
+                <li class="nav-item"><button class="nav-link w-100 active" data-bs-toggle="pill" data-bs-target="#panel-home" onclick="loadDashboardStats()"><i class="bi bi-grid-1x2-fill me-3"></i> Dashboard</button></li>
+                <li class="nav-item"><button class="nav-link w-100" data-bs-toggle="pill" data-bs-target="#panel-terminal-a"><i class="bi bi-shield-plus me-3"></i> Protect Data</button></li>
+                <li class="nav-item"><button class="nav-link w-100" data-bs-toggle="pill" data-bs-target="#panel-terminal-b"><i class="bi bi-unlock-fill me-3"></i> Extract Data</button></li>
+                <li class="nav-item"><button class="nav-link w-100" data-bs-toggle="pill" data-bs-target="#panel-vault" onclick="loadVaultData()"><i class="bi bi-folder-fill me-3"></i> Shared Vault</button></li>
+                <li class="nav-item"><button class="nav-link w-100" data-bs-toggle="pill" data-bs-target="#panel-signal-chat"><i class="bi bi-chat-square-lock-fill me-3 text-info"></i> Secure Comms</button></li>
+                <li class="nav-item"><button class="nav-link w-100" data-bs-toggle="pill" data-bs-target="#panel-zk-vault" onclick="loadVaultCredentials()"><i class="bi bi-shield-lock-fill me-3 text-warning"></i> ZK Password Vault</button></li>
+                <li class="nav-item"><button class="nav-link w-100" data-bs-toggle="pill" data-bs-target="#panel-code-scanner"><i class="bi bi-code-slash me-3 text-danger"></i> Code Security Scanner</button></li>
+                <li class="nav-item mt-5"><button class="nav-link w-100 text-danger border border-danger border-opacity-25" onclick="logout()"><i class="bi bi-power me-3"></i> Disconnect</button></li>
+            </ul>
+        </div>
+
+        <!-- Main Content -->
+        <div class="flex-grow-1 p-5" style="max-height: 100vh; overflow-y: auto;">
+            <!-- DEFCON Status Bar -->
+            <div class="d-flex justify-content-between align-items-center mb-4 pb-3 border-bottom border-secondary">
+                <span class="badge bg-success bg-opacity-10 text-success border border-success px-3 py-2 font-monospace" style="letter-spacing: 1px;">
+                    <i class="bi bi-shield-shaded me-1"></i> DEFCON 1 // SECURE
+                </span>
+                <span class="text-secondary small">Agent Codename: <strong class="text-info font-monospace text-uppercase" id="display-name">AGENT</strong></span>
+            </div>
+
+            <div class="tab-content">
+                <!-- 1. DASHBOARD -->
+                <div class="tab-pane fade show active" id="panel-home">
+                    <h2 class="fw-bold mb-5">Command Overview</h2>
+                    <div class="row g-4 mb-5">
+                        <div class="col-md-3"><div class="stat-card p-4"><p class="text-secondary mb-1">Total Files</p><h2 class="text-primary fw-bold mb-0" id="stat-total">0</h2></div></div>
+                        <div class="col-md-3"><div class="stat-card p-4"><p class="text-secondary mb-1">Active Shares</p><h2 class="text-success fw-bold mb-0" id="stat-active">0</h2></div></div>
+                        <div class="col-md-3"><div class="stat-card p-4"><p class="text-secondary mb-1">Received Inbox</p><h2 class="text-warning fw-bold mb-0" id="stat-inbox">0</h2></div></div>
+                        <div class="col-md-3"><div class="stat-card p-4"><p class="text-secondary mb-1">Revoked Shares</p><h2 class="text-danger fw-bold mb-0" id="stat-revoked">0</h2></div></div>
+                    </div>
+
+                    <!-- 3D CYBERNETIC GLOBE TELEMETRY -->
+                    <div class="card stat-card p-4 bg-black border-secondary mb-5 position-relative overflow-hidden" style="height: 350px;">
+                        <div class="position-absolute top-0 start-0 p-4 z-1 pointer-event-none">
+                            <h5 class="text-white fw-bold mb-1"><i class="bi bi-globe text-primary me-2"></i>Global Node Telemetry</h5>
+                            <p class="text-secondary small mb-0">Active cryptographic routing nodes & encrypted tunnel relays.</p>
+                        </div>
+                        <div id="globe-container" class="w-100 h-100 position-absolute top-0 start-0"></div>
+                    </div>
+
+                    <div class="d-flex justify-content-between align-items-center mb-3">
+                        <h4 class="fw-bold mb-0">Recent Activity</h4>
+                        <button class="btn btn-sm btn-outline-danger fw-bold shadow-none" onclick="wipeSystemLogs()"><i class="bi bi-eraser-fill me-1"></i> WIPE LOGS</button>
+                    </div>
+                    <div class="card bg-dark border-secondary">
+                        <div class="card-body p-0 table-responsive">
+                            <table class="table table-dark table-hover mb-0">
+                                <thead><tr><th class="ps-4">Event</th><th>Details</th><th>Time</th></tr></thead>
+                                <tbody id="activity-table-body"><tr><td colspan="3" class="text-center text-secondary py-3">Loading logs...</td></tr></tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 2. TERMINAL A (PROTECT) -->
+                <div class="tab-pane fade" id="panel-terminal-a">
+                    <h3 class="fw-bold mb-4"><i class="bi bi-shield-plus text-primary me-2"></i> Encrypt Payload</h3>
+                    <form id="encrypt-form">
+                        <div class="wizard-step active" id="step-1">
+                            <div class="step-indicator">Phase 1 of 3 // Architecture</div>
+                            <h4 class="mb-4 text-white">Transfer Protocol</h4>
+                            <div class="row g-4 mb-5">
+                                <div class="col-md-6">
+                                    <label class="form-label text-secondary">Security Level</label>
+                                    <select class="form-select border-primary text-primary fw-bold" id="enc-level" required>
+                                        <option value="level3">Level 3: Ghost Mode (Mandatory Steganography + Self-Destruct)</option>
+                                        <option value="level2" selected>Level 2: Secure Vault (Flexible Audit)</option>
+                                        <option value="level1">Level 1: Basic (Standard Persistent AES)</option>
+                                    </select>
+                                </div>
+                                <div class="col-md-6">
+                                    <label class="form-label text-secondary">Transfer Mode</label>
+                                    <select class="form-select" id="enc-mode" onchange="handleTransferModeChange()" required>
+                                        <option value="hidden">Hidden Transfer (Steganography + Watermark)</option>
+                                        <option value="direct" selected>Direct Transfer (Standard)</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <div class="text-end"><button type="button" class="btn-cyber" onclick="goToStep(2)">NEXT <i class="bi bi-arrow-right ms-2"></i></button></div>
+                        </div>
+
+                        <div class="wizard-step" id="step-2">
+                            <div class="step-indicator">Phase 2 of 3 // Payload Upload</div>
+                            <h4 class="mb-4 text-white">Input your payload.</h4>
+                            <div class="mb-4">
+                                <label class="form-label text-secondary">Payload Format</label>
+                                <select class="form-select border-primary text-primary fw-bold" id="enc-payload-type" onchange="handlePayloadTypeChange()">
+                                    <option value="file">Upload a Secret File</option>
+                                    <option value="text">Type a Secret Text Message</option>
+                                </select>
+                            </div>
+                            <div class="mb-4" id="secret-file-section"><label class="form-label text-secondary">Secret File</label><input type="file" class="form-control" id="enc-secret"></div>
+                            <div class="mb-4" id="secret-text-section" style="display: none;"><label class="form-label text-secondary">Secret Text Message</label><textarea class="form-control" id="enc-secret-text" rows="4"></textarea></div>
+                            <div class="mb-4" id="carrier-upload-section" style="display: none;"><label class="form-label text-secondary">Carrier Image (Required for Hidden Mode)</label><input type="file" class="form-control" id="enc-carrier" accept="image/png, image/jpeg"></div>
+                            <div class="d-flex justify-content-between mt-5"><button type="button" class="btn btn-outline-secondary px-4 py-2" onclick="goToStep(1)">BACK</button><button type="button" class="btn-cyber" onclick="goToStep(3)">NEXT <i class="bi bi-arrow-right ms-2"></i></button></div>
+                        </div>
+
+                        <div class="wizard-step" id="step-3">
+                            <div class="step-indicator">Phase 3 of 3 // Cryptography</div>
+                            <h4 class="mb-4 text-white">Lock Payload</h4>
+                            
+                            <!-- Recipient with Contact Roster Dropdown Integration -->
+                            <div class="mb-4">
+                                <div class="d-flex justify-content-between align-items-center mb-1">
+                                    <label class="form-label text-secondary mb-0">Target Recipient (Email or Agent)</label>
+                                    <button type="button" class="btn btn-sm btn-outline-info py-0 px-2" style="font-size: 11px;" onclick="populateRecipientDropdown()">
+                                        <i class="bi bi-people-fill me-1"></i> Load Contacts
+                                    </button>
+                                </div>
+                                <div class="input-group">
+                                    <input type="email" class="form-control" id="enc-recipient" placeholder="agent@privacyos.net or select below" required>
+                                    <select class="form-select border-secondary bg-dark text-white" id="enc-recipient-select" style="max-width: 180px;" onchange="document.getElementById('enc-recipient').value = this.value;">
+                                        <option value="">-- Select Friend --</option>
+                                    </select>
+                                </div>
+                                <small class="text-muted" style="font-size: 11px;">Type external email or pick from your secure agent roster.</small>
+                            </div>
+
+                            <div class="mb-4">
+                                <label class="form-label text-secondary">Lock Method</label>
+                                <select class="form-select" id="enc-lock-type">
+                                    <option value="text">Text Cipher (Password)</option>
+                                    <option value="keycard">Digital Keycard (.key file)</option>
+                                </select>
+                            </div>
+                            <div class="mb-4" id="enc-password-group">
+                                <label class="form-label text-secondary">Cipher Key / Password (Communicate Out-of-Band)</label>
+                                <div class="input-group border border-secondary rounded">
+                                    <input type="password" class="form-control border-0" id="enc-password" placeholder="Enter or generate secure password">
+                                    <button class="btn btn-dark border-start border-secondary text-primary shadow-none" type="button" onclick="autoGeneratePassword('enc-password')"><i class="bi bi-magic"></i></button>
+                                </div>
+                            </div>
+                            <div class="form-check form-switch mt-4 p-3 bg-dark border border-danger border-opacity-25 rounded">
+                                <input class="form-check-input bg-danger ms-0 me-3" type="checkbox" id="enc-burn" style="width: 2.5em; height: 1.25em; cursor: pointer;">
+                                <label class="form-check-label text-warning fw-bold mt-1" for="enc-burn" style="cursor: pointer;"><i class="bi bi-fire me-1"></i> BURN AFTER READING</label>
+                            </div>
+                            <div class="d-flex justify-content-between mt-5"><button type="button" class="btn btn-outline-secondary px-4 py-2" onclick="goToStep(2)">BACK</button><button type="submit" id="btn-encrypt-submit" class="btn-cyber bg-danger text-white border-0">ENCRYPT PAYLOAD</button></div>
+                        </div>
+
+                        <div class="wizard-step text-center" id="step-4">
+                            <i class="bi bi-check-circle-fill text-success" style="font-size: 4rem;"></i>
+                            <h3 class="mt-3 text-success fw-bold">PAYLOAD SECURED</h3>
+                            <div class="bg-black p-3 rounded border border-success d-inline-block mt-3 mb-4"><code class="fs-5 text-warning user-select-all" id="enc-vault-id-display"></code></div>
+                            <div class="mt-2 mb-4"><div id="qrcode-display" class="p-3 bg-white rounded-3 shadow-sm d-inline-block"></div></div>
+                            <button type="button" class="btn btn-outline-secondary px-4" onclick="resetEncryption()">ENCRYPT NEW</button>
+                        </div>
+                    </form>
+                </div>
+
+                <!-- 3. TERMINAL B (EXTRACT) -->
+                <div class="tab-pane fade" id="panel-terminal-b">
+                    <h3 class="fw-bold mb-4"><i class="bi bi-unlock-fill text-success me-2"></i> Extract Payload</h3>
+                    <form id="decrypt-form">
+                        <div class="wizard-step active" id="dec-step-1">
+                            <div class="step-indicator text-success">Phase 1 of 2 // Target Acquisition</div>
+                            <h4 class="mb-4 text-white">Enter Vault File ID</h4>
+                            <div class="mb-4">
+                                <label class="form-label text-secondary small">Secure Payload UUID</label>
+                                <input type="text" class="form-control font-monospace" id="dec-vault-id" placeholder="Paste Vault UUID here..." required>
+                            </div>
+                            <div class="text-end mt-5">
+                                <button type="button" class="btn-cyber bg-success" onclick="goToDecStep(2)">NEXT <i class="bi bi-arrow-right ms-2"></i></button>
+                            </div>
+                        </div>
+
+                        <div class="wizard-step" id="dec-step-2">
+                            <div class="step-indicator text-success">Phase 2 of 2 // Cryptographic Bypass</div>
+                            <h4 class="mb-4 text-white">Input Extraction Key</h4>
+                            <div class="mb-4">
+                                <label class="form-label text-secondary small">Cipher Key / Passphrase (or MAYDAY duress code)</label>
+                                <input type="password" class="form-control" id="dec-password" placeholder="Enter key..." required>
+                            </div>
+                            <div class="d-flex justify-content-between mt-5">
+                                <button type="button" class="btn btn-outline-secondary px-4 py-2" onclick="goToDecStep(1)">BACK</button>
+                                <button type="submit" id="btn-decrypt-submit" class="btn-cyber bg-success border-0">INITIATE EXTRACTION</button>
+                            </div>
+                        </div>
+
+                        <div class="wizard-step text-center" id="dec-step-3">
+                            <i class="bi bi-unlock text-success" style="font-size: 4rem;"></i>
+                            <h3 class="mt-3 text-success fw-bold">EXTRACTION SUCCESSFUL</h3>
+                            <p class="text-secondary small mb-4">Payload has been decrypted and downloaded to your local machine.</p>
+                            <button type="button" class="btn btn-outline-secondary px-4" onclick="resetExtraction()">EXTRACT ANOTHER</button>
+                        </div>
+                    </form>
+                </div>
+
+                <!-- 4. VAULT -->
+                <div class="tab-pane fade" id="panel-vault">
+                    <h3 class="fw-bold mb-4"><i class="bi bi-safe2-fill text-warning me-2"></i> Shared Vault</h3>
+                    <div class="card stat-card mb-5 bg-transparent p-0 overflow-hidden">
+                        <div class="card-header bg-black border-bottom border-secondary p-3"><h5 class="mb-0 text-white"><i class="bi bi-send-arrow-up text-primary me-2"></i> ACTIVE OUTBOX</h5></div>
+                        <div class="card-body p-0 table-responsive">
+                            <table class="table table-dark table-hover mb-0 bg-transparent">
+                                <thead><tr><th class="ps-4">PAYLOAD ID</th><th>RECIPIENT</th><th>PROTOCOL</th><th>STATUS</th><th class="text-end pe-4">COMMAND</th></tr></thead>
+                                <tbody id="outbox-tbody"><tr><td colspan="5" class="text-center text-secondary py-3">Loading...</td></tr></tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 5. SIGNAL CHAT PANEL -->
+                <div class="tab-pane fade" id="panel-signal-chat">
+                    <div class="row g-0 border border-secondary rounded-4 overflow-hidden" style="height: 80vh; background: #0a0a0f;">
+                        <!-- Sidebar list -->
+                        <div class="col-md-4 border-end border-secondary d-flex flex-column bg-black">
+                            <div class="p-3 border-bottom border-secondary d-flex justify-content-between align-items-center">
+                                <h5 class="fw-bold text-white m-0"><i class="bi bi-shield-lock text-info me-2"></i>Secure Comms</h5>
+                                <button class="btn btn-sm btn-outline-info" data-bs-toggle="modal" data-bs-target="#addFriendModal"><i class="bi bi-person-plus-fill"></i> Add Agent</button>
+                            </div>
+                            <div class="flex-grow-1 overflow-y-auto p-3" id="signal-chat-list">
+                                <div class="p-3 text-center text-secondary small">No contacts added yet. Click 'Add Agent' above.</div>
+                            </div>
+                        </div>
+                        <!-- Active Chat Stream -->
+                        <div class="col-md-8 d-flex flex-column bg-dark" style="background: #0d0d14 !important;">
+                            <div class="p-3 border-bottom border-secondary bg-black d-flex justify-content-between align-items-center">
+                                <h6 class="text-white mb-0" id="active-chat-title">Select a secure channel</h6>
+                                <span class="badge bg-success bg-opacity-10 text-success border border-success px-2 py-1 small"><i class="bi bi-lock-fill"></i> E2EE Active</span>
+                            </div>
+                            <div class="flex-grow-1 p-4 overflow-y-auto d-flex flex-column gap-3" id="signal-message-stream">
+                                <div class="text-center text-secondary my-auto"><i class="bi bi-shield-check display-4 opacity-50 mb-2"></i><p class="small">End-to-end encrypted messaging channel.</p></div>
+                            </div>
+                            <div class="p-3 border-top border-secondary bg-black">
+                                <form id="signal-send-form" class="d-flex gap-2">
+                                    <input type="text" id="signal-message-input" class="form-control bg-dark border-secondary text-white" placeholder="Write a secure message..." autocomplete="off" required>
+                                    <button type="submit" class="btn btn-info px-4 fw-bold"><i class="bi bi-send-fill"></i></button>
+                                </form>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 6. ZERO-KNOWLEDGE PASSWORD VAULT PANEL -->
+                <div class="tab-pane fade" id="panel-zk-vault">
+                    <div class="d-flex justify-content-between align-items-center mb-4">
+                        <div>
+                            <h3 class="fw-bold mb-1"><i class="bi bi-shield-lock text-warning me-2"></i>Zero-Knowledge Vault</h3>
+                            <p class="text-secondary small mb-0">Client-side encrypted credentials. The server has zero knowledge of your keys.</p>
+                        </div>
+                        <button class="btn btn-warning fw-bold text-dark px-4" data-bs-toggle="modal" data-bs-target="#addCredentialModal">
+                            <i class="bi bi-plus-lg me-2"></i>New Secret Note
+                        </button>
+                    </div>
+                    <div class="row g-4" id="zk-credentials-grid">
+                        <div class="col-12 text-center text-secondary py-5">Loading secure vault...</div>
+                    </div>
+                </div>
+
+                <!-- 7. CODE SECURITY SCANNER PANEL -->
+                <div class="tab-pane fade" id="panel-code-scanner">
+                    <div class="mb-4">
+                        <h3 class="fw-bold mb-1"><i class="bi bi-code-slash text-danger me-2"></i>Code Security & Secret Scanner</h3>
+                        <p class="text-secondary small mb-0">Static analysis engine to detect hardcoded API keys, passwords, and injection vulnerabilities.</p>
+                    </div>
+                    <div class="row g-4">
+                        <div class="col-md-6">
+                            <div class="card stat-card p-4 bg-black border-secondary h-100">
+                                <h5 class="text-white mb-3"><i class="bi bi-terminal text-primary me-2"></i>Source Code Input</h5>
+                                <form id="scanner-form">
+                                    <div class="mb-3">
+                                        <label class="form-label text-secondary small">File Name / Module</label>
+                                        <input type="text" class="form-control bg-dark text-white border-secondary" id="scan-filename" value="app_config.py" required>
+                                    </div>
+                                    <div class="mb-3">
+                                        <label class="form-label text-secondary small">Paste Source Code</label>
+                                        <textarea class="form-control bg-dark text-white border-secondary font-monospace" id="scan-codetext" rows="10" placeholder="Paste python, js, or .env config here..." required></textarea>
+                                    </div>
+                                    <button type="submit" class="btn btn-danger fw-bold w-100 py-2">RUN STATIC SECURITY SCAN</button>
+                                </form>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="card stat-card p-4 bg-black border-secondary h-100 d-flex flex-column">
+                                <h5 class="text-white mb-3"><i class="bi bi-shield-check text-success me-2"></i>Audit Report</h5>
+                                <div id="scan-report-box" class="flex-grow-1 bg-dark p-4 rounded border border-secondary text-center d-flex flex-column align-items-center justify-content-center">
+                                    <i class="bi bi-shield-shaded display-4 text-secondary mb-2"></i>
+                                    <p class="text-secondary small mb-0">Awaiting source code analysis...</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+    </div>
+
+    <!-- MODALS -->
+    <div class="modal fade" id="addFriendModal" tabindex="-1">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content bg-dark border border-secondary text-white">
+                <div class="modal-header border-bottom border-secondary">
+                    <h5 class="modal-title"><i class="bi bi-person-plus text-info me-2"></i>Recruit Agent Contact</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label text-secondary small">Search by Username or Email</label>
+                        <div class="input-group">
+                            <input type="text" class="form-control bg-black text-white border-secondary" id="search-agent-input" placeholder="e.g. agent_zero">
+                            <button class="btn btn-outline-info" type="button" onclick="searchAgents()">Search</button>
+                        </div>
+                    </div>
+                    <div id="search-results-container" class="list-group bg-black border border-secondary rounded overflow-hidden">
+                        <div class="p-3 text-center text-secondary small">Enter a query to search registered network agents.</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal fade" id="addCredentialModal" tabindex="-1">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content bg-dark border border-secondary text-white">
+                <div class="modal-header border-bottom border-secondary">
+                    <h5 class="modal-title"><i class="bi bi-key-fill text-warning me-2"></i>Store Encrypted Secret</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <form id="zk-credential-form">
+                        <div class="mb-3">
+                            <label class="form-label text-secondary small">Title / Service Name</label>
+                            <input type="text" class="form-control bg-black text-white border-secondary" id="zk-title" placeholder="e.g. Production Database Root" required>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label text-secondary small">Secret Data / Password / API Key</label>
+                            <textarea class="form-control bg-black text-white border-secondary" id="zk-secret-data" rows="3" placeholder="Enter sensitive information..." required></textarea>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label text-secondary small">Master Encryption Passphrase</label>
+                            <input type="password" class="form-control bg-black text-white border-secondary" id="zk-master-pass" placeholder="Passphrase to lock this item locally" required>
+                        </div>
+                        <div class="text-end">
+                            <button type="submit" class="btn btn-warning fw-bold text-dark px-4">ENCRYPT & STORE</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Scripts -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+    <script>
+        const API_BASE = "http://localhost:8000"; 
+        let activeSocket = null;
+        let currentRecipient = null;
+        
+        document.addEventListener("DOMContentLoaded", () => {
+            const username = localStorage.getItem("username");
+            if (username) {
+                document.getElementById("display-name").innerText = username.toUpperCase();
+            }
+            loadDashboardStats();
+            loadVaultData();
+            connectSignalSocket();
+            loadFriendContacts();
+            loadVaultCredentials();
+            init3DNetGlobe();
+            
+            // Initialize tier gating behavior on load
+            document.getElementById("enc-level").dispatchEvent(new Event('change'));
+        });
+
+        // --- POPULATE RECIPIENT FROM FRIEND ROSTER ---
+        async function populateRecipientDropdown() {
+            const userId = localStorage.getItem("user_id") || 1;
+            const selectBox = document.getElementById("enc-recipient-select");
+            
+            try {
+                const res = await fetch(`${API_BASE}/api/friends/list/${userId}`);
+                if (res.ok) {
+                    const friends = await res.json();
+                    selectBox.innerHTML = `<option value="">-- Select Friend --</option>`;
+                    
+                    if (friends.length === 0) {
+                        selectBox.innerHTML += `<option value="" disabled>No contacts in roster</option>`;
+                        return;
+                    }
+                    
+                    friends.forEach(f => {
+                        selectBox.innerHTML += `<option value="${f.friend_email}">${f.friend_username} (${f.friend_email})</option>`;
+                    });
+                }
+            } catch (err) {
+                console.error("Failed to load friend contacts for dropdown", err);
+            }
+        }
+
+        // --- DYNAMIC SECURITY TIER GATES ---
+        document.getElementById("enc-level").addEventListener("change", function() {
+            const level = this.value;
+            const modeSelect = document.getElementById("enc-mode");
+            const burnSwitch = document.getElementById("enc-burn");
+            
+            if (level === "level1") {
+                modeSelect.value = "direct";
+                modeSelect.disabled = false;
+                burnSwitch.checked = false;
+                burnSwitch.disabled = false;
+            } else if (level === "level2") {
+                modeSelect.disabled = false;
+                burnSwitch.disabled = false;
+            } else if (level === "level3") {
+                modeSelect.value = "hidden";
+                modeSelect.disabled = true; // Level 3 forces steganography
+                burnSwitch.checked = true;
+                burnSwitch.disabled = true; // Level 3 forces self-destruction
+            }
+            handleTransferModeChange();
+        });
+
+        // --- 3D CYBERNETIC GLOBE INITIALIZER ---
+        function init3DNetGlobe() {
+            const container = document.getElementById("globe-container");
+            if (!container) return;
+
+            const scene = new THREE.Scene();
+            const camera = new THREE.PerspectiveCamera(60, container.clientWidth / container.clientHeight, 0.1, 1000);
+            const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+            
+            renderer.setSize(container.clientWidth, container.clientHeight);
+            container.appendChild(renderer.domElement);
+
+            const geometry = new THREE.SphereGeometry(2, 32, 32);
+            const material = new THREE.MeshBasicMaterial({
+                color: 0x0d6efd,
+                wireframe: true,
+                transparent: true,
+                opacity: 0.25
+            });
+            const globe = new THREE.Mesh(geometry, material);
+            scene.add(globe);
+
+            const particleGeo = new THREE.BufferGeometry();
+            const particleCount = 200;
+            const posArray = new Float32Array(particleCount * 3);
+            for(let i = 0; i < particleCount * 3; i++) {
+                posArray[i] = (Math.random() - 0.5) * 5;
+            }
+            particleGeo.setAttribute('position', new THREE.BufferAttribute(posArray, 3));
+            const particleMat = new THREE.PointsMaterial({ size: 0.03, color: 0x0dcaf0 });
+            const particles = new THREE.Points(particleGeo, particleMat);
+            scene.add(particles);
+
+            camera.position.z = 5;
+
+            function animate() {
+                requestAnimationFrame(animate);
+                globe.rotation.y += 0.003;
+                particles.rotation.y -= 0.001;
+                renderer.render(scene, camera);
+            }
+            animate();
+
+            window.addEventListener('resize', () => {
+                camera.aspect = container.clientWidth / container.clientHeight;
+                camera.updateProjectionMatrix();
+                renderer.setSize(container.clientWidth, container.clientHeight);
+            });
+        }
+
+        function connectSignalSocket() {
+            const myEmail = localStorage.getItem("email");
+            if (!myEmail) return;
+            activeSocket = new WebSocket(`${API_BASE.replace('http', 'ws')}/ws/chat/${myEmail}`);
+            activeSocket.onmessage = function(event) {
+                const packet = JSON.parse(event.data);
+                if (packet.sender_email && packet.encrypted_content) {
+                    appendMessageToStream(packet.sender_email, packet.encrypted_content, false);
+                }
+            };
+        }
+
+        function openChat(recipientEmail) {
+            currentRecipient = recipientEmail;
+            document.getElementById("active-chat-title").innerText = recipientEmail;
+            document.getElementById("signal-message-stream").innerHTML = "";
+        }
+
+        function appendMessageToStream(sender, text, isOutgoing) {
+            const stream = document.getElementById("signal-message-stream");
+            const alignClass = isOutgoing ? "ms-auto bg-primary text-white" : "me-auto bg-secondary text-light";
+            stream.innerHTML += `<div class="p-3 rounded-3 ${alignClass}" style="max-width: 65%;"><div class="small text-white-50 mb-1" style="font-size: 10px;">${sender}</div><div class="font-monospace">${text}</div></div>`;
+            stream.scrollTop = stream.scrollHeight;
+        }
+
+        document.getElementById("signal-send-form").addEventListener("submit", (e) => {
+            e.preventDefault();
+            if (!currentRecipient) { alert("Select a recipient first."); return; }
+            const input = document.getElementById("signal-message-input");
+            const text = input.value;
+            if (!text) return;
+
+            activeSocket.send(JSON.stringify({ recipient_email: currentRecipient, encrypted_content: text, is_burned: false }));
+            appendMessageToStream("You", text, true);
+            input.value = "";
+        });
+
+        async function loadFriendContacts() {
+            const userId = localStorage.getItem("user_id") || 1;
+            try {
+                const res = await fetch(`${API_BASE}/api/friends/list/${userId}`);
+                if (res.ok) {
+                    const friends = await res.json();
+                    const list = document.getElementById("signal-chat-list");
+                    list.innerHTML = friends.length === 0 ? `<div class="p-3 text-center text-secondary small">No contacts added yet. Click 'Add Agent' above.</div>` : "";
+                    
+                    friends.forEach(f => {
+                        list.innerHTML += `
+                            <div class="p-3 border-bottom border-secondary text-white d-flex align-items-center" style="cursor: pointer;" onclick="openChat('${f.friend_email}')">
+                                <div class="bg-info bg-opacity-10 text-info rounded-circle text-center fw-bold me-3 d-flex align-items-center justify-content-center border border-info" style="width: 35px; height: 35px;">${f.friend_username.substring(0,2).toUpperCase()}</div>
+                                <div>
+                                    <h6 class="mb-0 fs-6">${f.friend_username}</h6>
+                                    <small class="text-success font-monospace" style="font-size: 10px;">● ${f.friend_email}</small>
+                                </div>
+                            </div>
+                        `;
+                    });
+                }
+            } catch (err) { console.error("Failed to load contacts", err); }
+        }
+
+        async function searchAgents() {
+            const query = document.getElementById("search-agent-input").value;
+            if (!query) return;
+            try {
+                const res = await fetch(`${API_BASE}/api/agents/search?search_query=${encodeURIComponent(query)}`);
+                if (res.ok) {
+                    const users = await res.json();
+                    const container = document.getElementById("search-results-container");
+                    container.innerHTML = users.length === 0 ? `<div class="p-3 text-center text-secondary small">No agents found.</div>` : "";
+                    
+                    users.forEach(u => {
+                        if (u.email === localStorage.getItem("email")) return;
+                        container.innerHTML += `
+                            <div class="list-group-item bg-dark text-white border-secondary d-flex justify-content-between align-items-center p-3">
+                                <div>
+                                    <strong>${u.username}</strong><br>
+                                    <small class="text-secondary">${u.email}</small>
+                                </div>
+                                <button class="btn btn-sm btn-info fw-bold" onclick="addAgentContact('${u.email}', '${u.username}')">ADD</button>
+                            </div>
+                        `;
+                    });
+                }
+            } catch (err) { alert("Search error."); }
+        }
+
+        async function addAgentContact(email, username) {
+            const userId = localStorage.getItem("user_id") || 1;
+            const fd = new FormData();
+            fd.append("user_id", userId);
+            fd.append("friend_email", email);
+            fd.append("friend_username", username);
+
+            const res = await fetch(`${API_BASE}/api/friends/add`, { method: "POST", body: fd });
+            if (res.ok) {
+                alert("Agent added to secure roster!");
+                loadFriendContacts();
+                bootstrap.Modal.getInstance(document.getElementById('addFriendModal')).hide();
+            } else {
+                const err = await res.json();
+                alert("Error: " + err.detail);
+            }
+        }
+
+        // --- ZK PASSWORD VAULT CRYPTO HELPERS ---
+        async function getKey(passphrase, salt) {
+            const enc = new TextEncoder();
+            const keyMaterial = await window.crypto.subtle.importKey(
+                "raw", enc.encode(passphrase), { name: "PBKDF2" }, false, ["deriveKey"]
+            );
+            return window.crypto.subtle.deriveKey(
+                { name: "PBKDF2", salt: salt, iterations: 100000, hash: "SHA-256" },
+                keyMaterial,
+                { name: "AES-GCM", length: 256 },
+                false,
+                ["encrypt", "decrypt"]
+            );
+        }
+
+        async function encryptClientSide(text, passphrase) {
+            const salt = window.crypto.getRandomValues(new Uint8Array(16));
+            const iv = window.crypto.getRandomValues(new Uint8Array(12));
+            const key = await getKey(passphrase, salt);
+            const encoded = new TextEncoder().encode(text);
+            
+            const ciphertext = await window.crypto.subtle.encrypt(
+                { name: "AES-GCM", iv: iv }, key, encoded
+            );
+            
+            const combined = new Uint8Array(salt.byteLength + iv.byteLength + ciphertext.byteLength);
+            combined.set(salt, 0);
+            combined.set(iv, salt.byteLength);
+            combined.set(new Uint8Array(ciphertext), salt.byteLength + iv.byteLength);
+            
+            return btoa(String.fromCharCode.apply(null, combined));
+        }
+
+        async function decryptClientSide(base64Data, passphrase) {
+            try {
+                const binStr = atob(base64Data);
+                const bytes = new Uint8Array(binStr.length);
+                for (let i = 0; i < binStr.length; i++) bytes[i] = binStr.charCodeAt(i);
+                
+                const salt = bytes.slice(0, 16);
+                const iv = bytes.slice(16, 28);
+                const ciphertext = bytes.slice(28);
+                
+                const key = await getKey(passphrase, salt);
+                const decrypted = await window.crypto.subtle.decrypt(
+                    { name: "AES-GCM", iv: iv }, key, ciphertext
+                );
+                return new TextDecoder().decode(decrypted);
+            } catch (e) {
+                throw new Error("Invalid decryption passphrase.");
+            }
+        }
+
+        document.getElementById("zk-credential-form").addEventListener("submit", async (e) => {
+            e.preventDefault();
+            const title = document.getElementById("zk-title").value;
+            const secret = document.getElementById("zk-secret-data").value;
+            const passphrase = document.getElementById("zk-master-pass").value;
+            
+            try {
+                const encryptedBlob = await encryptClientSide(secret, passphrase);
+                const userId = localStorage.getItem("user_id") || 1;
+                
+                const fd = new FormData();
+                fd.append("user_id", userId);
+                fd.append("title", title);
+                fd.append("encrypted_blob", encryptedBlob);
+                
+                const res = await fetch(`${API_BASE}/api/vault/credentials/save`, { method: "POST", body: fd });
+                if (res.ok) {
+                    alert("Credential securely encrypted client-side and saved!");
+                    document.getElementById("zk-credential-form").reset();
+                    bootstrap.Modal.getInstance(document.getElementById('addCredentialModal')).hide();
+                    loadVaultCredentials();
+                } else {
+                    alert("Failed to save credential.");
+                }
+            } catch (err) {
+                alert("Encryption error: " + err.message);
+            }
+        });
+
+        async function loadVaultCredentials() {
+            const userId = localStorage.getItem("user_id") || 1;
+            try {
+                const res = await fetch(`${API_BASE}/api/vault/credentials/list/${userId}`);
+                if (res.ok) {
+                    const items = await res.json();
+                    const grid = document.getElementById("zk-credentials-grid");
+                    grid.innerHTML = items.length === 0 ? `<div class="col-12 text-center text-secondary py-5">No secure items stored in ZK Vault.</div>` : "";
+                    
+                    items.forEach(i => {
+                        grid.innerHTML += `
+                            <div class="col-md-4">
+                                <div class="card stat-card p-4 bg-black border-secondary">
+                                    <div class="d-flex justify-content-between align-items-center mb-3">
+                                        <h5 class="text-white mb-0"><i class="bi bi-lock text-warning me-2"></i>${i.title}</h5>
+                                        <button class="btn btn-sm btn-outline-danger" onclick="deleteZKItem(${i.id})"><i class="bi bi-trash3"></i></button>
+                                    </div>
+                                    <div class="mb-3">
+                                        <div class="input-group input-group-sm">
+                                            <input type="password" class="form-control bg-dark border-secondary text-secondary font-monospace" id="zk-blob-${i.id}" value="${i.encrypted_blob}" readonly>
+                                        </div>
+                                        <small class="text-muted" style="font-size: 10px;">Ciphertext (Server-side stored)</small>
+                                    </div>
+                                    <div class="input-group input-group-sm mb-2">
+                                        <input type="password" class="form-control bg-dark border-secondary text-white" id="zk-pass-${i.id}" placeholder="Enter unlock passphrase">
+                                        <button class="btn btn-warning text-dark fw-bold" onclick="unlockZKItem(${i.id})">DECRYPT</button>
+                                    </div>
+                                    <div class="font-monospace text-success small mt-2" id="zk-result-${i.id}" style="word-break: break-all;"></div>
+                                </div>
+                            </div>
+                        `;
+                    });
+                }
+            } catch (err) { console.error("ZK Vault load error", err); }
+        }
+
+        async function unlockZKItem(itemId) {
+            const blob = document.getElementById(`zk-blob-${itemId}`).value;
+            const passphrase = document.getElementById(`zk-pass-${itemId}`).value;
+            const resultBox = document.getElementById(`zk-result-${itemId}`);
+            
+            if (!passphrase) { alert("Provide passphrase."); return; }
+            
+            try {
+                const decryptedText = await decryptClientSide(blob, passphrase);
+                resultBox.innerText = `🔓 ${decryptedText}`;
+            } catch (err) {
+                resultBox.innerText = `❌ Decryption Failed (Wrong Passphrase)`;
+            }
+        }
+
+        async function deleteZKItem(itemId) {
+            if (!confirm("Permanently delete credential?")) return;
+            const res = await fetch(`${API_BASE}/api/vault/credentials/delete/${itemId}`, { method: "DELETE" });
+            if (res.ok) loadVaultCredentials();
+        }
+
+        // --- CODE SECURITY SCANNER ---
+        document.getElementById("scanner-form").addEventListener("submit", async (e) => {
+            e.preventDefault();
+            const fileName = document.getElementById("scan-filename").value;
+            const codeText = document.getElementById("scan-codetext").value;
+            const reportBox = document.getElementById("scan-report-box");
+            
+            reportBox.innerHTML = `<div class="spinner-border text-danger" role="status"></div><p class="text-secondary mt-2 small">Analyzing Abstract Syntax Tree & Regex patterns...</p>`;
+            
+            try {
+                const userId = localStorage.getItem("user_id") || 1;
+                const fd = new FormData();
+                fd.append("user_id", userId);
+                fd.append("file_name", fileName);
+                fd.append("code_text", codeText);
+                
+                const res = await fetch(`${API_BASE}/api/scanner/analyze`, { method: "POST", body: fd });
+                if (res.ok) {
+                    const data = await res.json();
+                    
+                    let gradeColor = "text-success";
+                    if (data.grade === "B") gradeColor = "text-info";
+                    else if (data.grade === "C") gradeColor = "text-warning";
+                    else if (data.grade === "D" || data.grade === "F") gradeColor = "text-danger";
+                    
+                    let findingsHtml = "";
+                    if (data.findings.length === 0) {
+                        findingsHtml = `<div class="text-success small font-monospace mt-2">✓ Zero vulnerabilities detected. Clean architecture.</div>`;
+                    } else {
+                        findingsHtml = `<div class="text-start w-100 mt-3 overflow-y-auto" style="max-height: 200px;">`;
+                        data.findings.forEach(f => {
+                            findingsHtml += `
+                                <div class="p-2 mb-2 bg-black border border-danger border-opacity-50 rounded font-monospace" style="font-size: 11px;">
+                                    <span class="text-danger fw-bold">Line ${f.line}: [${f.type}]</span><br>
+                                    <span class="text-secondary">${f.snippet}</span>
+                                </div>
+                            `;
+                        });
+                        findingsHtml += `</div>`;
+                    }
+                    
+                    reportBox.innerHTML = `
+                        <div class="display-3 fw-bold font-monospace ${gradeColor}">GRADE: ${data.grade}</div>
+                        <p class="text-secondary small mt-1">Total Vulnerabilities Found: <strong class="text-white">${data.total_vulnerabilities}</strong></p>
+                        ${findingsHtml}
+                    `;
+                } else {
+                    reportBox.innerHTML = `<p class="text-danger small">Scan analysis failed.</p>`;
+                }
+            } catch (err) {
+                reportBox.innerHTML = `<p class="text-danger small">Connection error during scan.</p>`;
+            }
+        });
+
+        function autoGeneratePassword(inputId) {
+            const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!@#$%^&*-";
+            let pass = "";
+            for (let i = 0; i < 16; i++) pass += chars.charAt(Math.floor(Math.random() * chars.length));
+            document.getElementById(inputId).value = pass;
+        }
+
+        async function loadDashboardStats() {
+            try {
+                const [outboxRes, inboxRes, auditRes] = await Promise.all([
+                    fetch(`${API_BASE}/api/vault/outbox/1`),
+                    fetch(`${API_BASE}/api/vault/inbox/${localStorage.getItem("email") || ""}`),
+                    fetch(`${API_BASE}/api/audit`)
+                ]);
+                if (outboxRes.ok && inboxRes.ok) {
+                    const outbox = await outboxRes.json();
+                    const inbox = await inboxRes.json();
+                    document.getElementById("stat-total").innerText = outbox.length + inbox.length;
+                    document.getElementById("stat-active").innerText = outbox.filter(f => !f.is_revoked).length;
+                    document.getElementById("stat-inbox").innerText = inbox.length;
+                    document.getElementById("stat-revoked").innerText = outbox.filter(f => f.is_revoked).length;
+                }
+                if (auditRes.ok) {
+                    const logs = await auditRes.json();
+                    const tbody = document.getElementById("activity-table-body");
+                    tbody.innerHTML = logs.length === 0 ? `<tr><td colspan="3" class="text-center text-secondary py-4">No activity.</td></tr>` : "";
+                    logs.slice(0, 5).forEach(log => {
+                        tbody.innerHTML += `<tr><td class="ps-4 fw-bold">${log.event_type}</td><td>${log.details}</td><td class="text-secondary small">${new Date(log.timestamp).toLocaleString()}</td></tr>`;
+                    });
+                }
+            } catch (err) { console.error(err); }
+        }
+
+        async function loadVaultData() {
+            try {
+                const res = await fetch(`${API_BASE}/api/vault/outbox/1`);
+                if (res.ok) {
+                    const files = await res.json();
+                    const tbody = document.getElementById("outbox-tbody");
+                    tbody.innerHTML = files.length === 0 ? `<tr><td colspan="5" class="text-center text-secondary py-4">Empty outbox.</td></tr>` : "";
+                    files.forEach(f => {
+                        tbody.innerHTML += `<tr><td class="ps-4 font-monospace">${f.id.substring(0,8)}...</td><td>${f.recipient}</td><td>${f.transfer_mode}</td><td>${f.is_revoked ? 'REVOKED':'ACTIVE'}</td><td class="text-end pe-4"><button class="btn btn-sm btn-outline-warning" onclick="triggerKillSwitch('${f.id}')">REVOKE</button></td></tr>`;
+                    });
+                }
+            } catch (err) { console.error(err); }
+        }
+
+        async function triggerKillSwitch(fileId) {
+            await fetch(`${API_BASE}/api/vault/revoke/${fileId}`, { method: "POST" });
+            loadVaultData();
+        }
+
+        async function wipeSystemLogs() {
+            await fetch(`${API_BASE}/api/audit/wipe`, { method: "DELETE" });
+            loadDashboardStats();
+        }
+
+        document.getElementById("encrypt-form").addEventListener("submit", async (e) => {
+            e.preventDefault();
+            const fd = new FormData();
+            fd.append("sender_email", localStorage.getItem("email") || "agent@network.com");
+            fd.append("recipient_email", document.getElementById("enc-recipient").value);
+            fd.append("transfer_mode", document.getElementById("enc-mode").value);
+            fd.append("security_tier", document.getElementById("enc-level").value);
+            fd.append("lock_type", document.getElementById("enc-lock-type").value);
+            fd.append("lock_password", document.getElementById("enc-password").value);
+            fd.append("max_views", document.getElementById("enc-burn").checked ? 1 : 999);
+            fd.append("max_downloads", 1);
+            fd.append("secret_file", document.getElementById("enc-secret").files[0] || new File([document.getElementById("enc-secret-text").value], "msg.txt"));
+            
+            const mode = document.getElementById("enc-mode").value;
+            if(mode === "hidden") {
+                const carrierInput = document.getElementById("enc-carrier");
+                if (carrierInput.files[0]) {
+                    fd.append("carrier_file", carrierInput.files[0]);
+                }
+            }
+
+            const res = await fetch(`${API_BASE}/api/protect`, { method: 'POST', body: fd });
+            if (res.ok) {
+                const data = await res.json();
+                document.getElementById("enc-vault-id-display").innerText = data.file_id;
+                document.getElementById("qrcode-display").innerHTML = "";
+                new QRCode(document.getElementById("qrcode-display"), { text: data.file_id, width: 150, height: 150 });
+                goToStep(4);
+                loadVaultData();
+            } else {
+                const err = await res.json();
+                alert("Encryption Failed: " + (err.detail || "Unknown error"));
+            }
+        });
+
+        // --- EXTRACT FORM SUBMISSION & WIZARD NAVIGATION ---
+        document.getElementById("decrypt-form").addEventListener("submit", async (e) => {
+            e.preventDefault();
+            const fileId = document.getElementById("dec-vault-id").value;
+            const password = document.getElementById("dec-password").value;
+            
+            const fd = new FormData();
+            fd.append("password", password);
+
+            try {
+                const res = await fetch(`${API_BASE}/api/extract/${fileId}`, { method: 'POST', body: fd });
+                if (res.ok) {
+                    const blob = await res.blob();
+                    const contentDisposition = res.headers.get("Content-Disposition");
+                    let filename = `decrypted_${fileId}`;
+                    if (contentDisposition && contentDisposition.includes("filename=")) {
+                        filename = contentDisposition.split("filename=")[1].replace(/"/g, '');
+                    }
+                    
+                    const a = document.createElement('a');
+                    a.href = URL.createObjectURL(blob);
+                    a.download = filename;
+                    a.click();
+                    
+                    goToDecStep(3);
+                    loadDashboardStats();
+                } else {
+                    const err = await res.json();
+                    alert("Extraction Error: " + err.detail);
+                }
+            } catch (err) {
+                alert("Network connection error during extraction.");
+            }
+        });
+
+        function goToStep(s) { document.querySelectorAll('#panel-terminal-a .wizard-step').forEach(el => el.classList.remove('active')); document.getElementById('step-'+s).classList.add('active'); }
+        function goToDecStep(s) { document.querySelectorAll('#panel-terminal-b .wizard-step').forEach(el => el.classList.remove('active')); document.getElementById('dec-step-'+s).classList.add('active'); }
+        
+        function resetEncryption() { document.getElementById("encrypt-form").reset(); goToStep(1); document.getElementById("enc-level").dispatchEvent(new Event('change')); }
+        function resetExtraction() { document.getElementById("decrypt-form").reset(); goToDecStep(1); }
+        
+        function handlePayloadTypeChange() {
+            const t = document.getElementById("enc-payload-type").value;
+            document.getElementById("secret-file-section").style.display = t === "file" ? "block" : "none";
+            document.getElementById("secret-text-section").style.display = t === "file" ? "none" : "block";
+        }
+        
+        function handleTransferModeChange() {
+            const m = document.getElementById("enc-mode").value;
+            document.getElementById("carrier-upload-section").style.display = m === "direct" ? "none" : "block";
+        }
+        
+        function logout() { localStorage.clear(); window.location.href = "index.html"; }
+    </script>
+</body>
+</html>

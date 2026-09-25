@@ -1,0 +1,11 @@
+fastapi
+uvicorn
+sqlalchemy
+pydantic
+email-validator
+passlib
+bcrypt
+python-jose[cryptography]
+cryptography
+websockets
+python-multipart
