@@ -1,0 +1,36 @@
+version: '3.8'
+
+services:
+  # 1. The PostgreSQL Database
+  db:
+    image: postgres:15-alpine
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: supersecretpassword
+      POSTGRES_DB: privacy_os
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+
+  # 2. Your Python FastAPI Backend
+  backend:
+    build: ./backend
+    ports:
+      - "8000:8000"
+    depends_on:
+      - db
+    environment:
+      # Tells Python to connect to the Docker database instead of localhost
+      - DATABASE_URL=postgresql://postgres:supersecretpassword@db:5432/privacy_os
+
+  # 3. Your HTML/JS Frontend (Served by Nginx)
+  frontend:
+    image: nginx:alpine
+    ports:
+      - "80:80" # Maps the website to http://localhost
+    volumes:
+      - ./frontend:/usr/share/nginx/html
+
+volumes:
+  pgdata: # Keeps your database safe even if the container restarts

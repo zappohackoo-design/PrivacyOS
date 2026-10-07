@@ -1,0 +1,13 @@
+fastapi
+uvicorn[standard]
+sqlalchemy
+pydantic
+email-validator
+passlib[bcrypt]
+bcrypt
+python-jose[cryptography]
+apscheduler
+python-multipart
+websockets
+requests
+pillow
