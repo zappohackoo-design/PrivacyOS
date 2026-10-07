@@ -11,3 +11,5 @@ python-multipart
 websockets
 requests
 pillow
+psycopg2-binary
+psycopg[binary]
